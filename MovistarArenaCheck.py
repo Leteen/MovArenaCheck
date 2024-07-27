@@ -1,49 +1,27 @@
 import streamlit as st
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 from bs4 import BeautifulSoup
 import time
-
-# Path to your ChromeDriver
-CHROME_DRIVER_PATH = 'E:/Martin/Botar/chromedriver'
 
 # URL of the website to scrape
 URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26'
 
-# Function to check status
-# Function to check status
-def check_status(driver):
-    # Refresh the webpage
-    driver.refresh()
+@st.cache_resource
+def get_driver():
+    return webdriver.Chrome(
+        service=Service(
+            ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+        ),
+        options=options,
+    )
 
-    # Wait for the page to load completely
-    time.sleep(5)
-
-    # Get the page source and parse it with BeautifulSoup
-    page_source = driver.page_source
-    soup = BeautifulSoup(page_source, 'html.parser')
-
-    # Select the elements containing the event information
-    events = soup.select('.evento-row')
-
-    results = []
-    for event in events:
-        date_element = event.select_one('.fecha')
-        status_button = event.select_one('button')
-        
-        if date_element:
-            date_text = date_element.get_text(strip=True)
-        else:
-            date_text = "Unknown Date"
-        
-        if status_button:
-            status_text = status_button.get_text(strip=True)
-        else:
-            status_text = "Agotado"
-        
-        results.append((date_text, status_text))
-    return results
+options = Options()
+options.add_argument("--disable-gpu")
+options.add_argument("--headless")
 
 st.title('Event Status Checker')
 
@@ -55,12 +33,32 @@ if 'running' not in st.session_state:
 if 'driver' not in st.session_state:
     st.session_state.driver = None
 
+def check_status(driver):
+    driver.refresh()
+    time.sleep(5)
+    page_source = driver.page_source
+    soup = BeautifulSoup(page_source, 'html.parser')
+    events = soup.select('.evento-row')
+    results = []
+    for event in events:
+        date_element = event.select_one('.fecha')
+        status_button = event.select_one('button')
+        if date_element:
+            date_text = date_element.get_text(strip=True)
+        else:
+            date_text = "Unknown Date"
+        if status_button:
+            status_text = status_button.get_text(strip=True)
+        else:
+            status_text = "Agotado"
+        results.append((date_text, status_text))
+    return results
+
 def start_checking():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run in headless mode
-    st.session_state.driver = webdriver.Chrome(options=chrome_options)
-    st.session_state.driver.get(URL)
-    st.session_state.running = True
+    with st.echo():
+        st.session_state.driver = get_driver()
+        st.session_state.driver.get(URL)
+        st.session_state.running = True
 
 def stop_checking():
     st.session_state.running = False
@@ -71,10 +69,9 @@ def stop_checking():
 st.button('Start Checking', on_click=start_checking)
 st.button('Stop Checking', on_click=stop_checking)
 
-highlight_container = st.empty()
 status_container = st.empty()
 timer_container = st.empty()
-
+highlight_container = st.empty()
 
 while st.session_state.running:
     for i in range(refresh_rate, 0, -1):
@@ -84,10 +81,9 @@ while st.session_state.running:
     
     statuses = check_status(st.session_state.driver)
     
-    # Highlight the timestamp
     with highlight_container:
-        st.markdown(f"<h4 style='color: red;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
-    time.sleep(1)  # Keep the highlight for a second
+        st.markdown(f"<h4 style='color: yellow;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
+    time.sleep(1)
 
     with highlight_container:
         st.markdown(f"<h4>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
