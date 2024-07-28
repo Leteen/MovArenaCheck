@@ -1,15 +1,11 @@
 import streamlit as st
 import os
-
-# Install necessary packages
-os.system('pip install -q selenium webdriver-manager')
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import time
+from webdriver_manager.chrome import ChromeDriverManager
 
 # URL of the website to scrape
 URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26'
@@ -59,13 +55,14 @@ if 'driver' not in st.session_state:
 
 def start_checking():
     chrome_options = Options()
+    chrome_options.add_argument("--disable-search-engine-choice-screen")
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
     chrome_options.add_argument("--no-sandbox")  # Bypass OS security model
     chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 
-    # Use webdriver-manager to download the correct version of ChromeDriver
-    chrome_service = Service(ChromeDriverManager(version="127.0.0").install())
+    # Use the path to ChromeDriver installed by webdriver-manager
+    chrome_service = Service(ChromeDriverManager().install())
     st.session_state.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
     st.session_state.driver.get(URL)
     st.session_state.running = True
