@@ -1,6 +1,17 @@
 import streamlit as st
+import os
+
+# Function to install and setup ChromeDriver
+@st.experimental_singleton
+def install_chromedriver():
+    os.system('sbase install chromedriver')
+    os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/chromedriver /home/appuser/venv/bin/chromedriver')
+
+# Install ChromeDriver
+_ = install_chromedriver()
+
 from selenium import webdriver
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import time
@@ -55,7 +66,12 @@ def start_checking():
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
-    st.session_state.driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_argument("--no-sandbox")  # Bypass OS security model
+    chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
+
+    # Specify the path to ChromeDriver
+    chrome_service = Service(os.path.join(os.getcwd(), 'chromedriver'))
+    st.session_state.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
     st.session_state.driver.get(URL)
     st.session_state.running = True
 
@@ -67,32 +83,38 @@ def stop_checking():
 
 if st.button('Start Checking'):
     start_checking()
-
 if st.button('Stop Checking'):
     stop_checking()
 
+highlight_container = st.empty()
+status_container = st.empty()
+timer_container = st.empty()
+
 if st.session_state.running:
-    statuses = check_status(st.session_state.driver)
-    
-    # Highlight the timestamp
-    st.markdown(f"<h4 style='color: red;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
-    time.sleep(1)  # Keep the highlight for a second
-    st.markdown(f"<h4>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
+    while st.session_state.running:
+        for i in range(refresh_rate, 0, -1):
+            with timer_container:
+                st.write(f"Next check in: {i} seconds")
+            time.sleep(1)
+        
+        statuses = check_status(st.session_state.driver)
+        
+        # Highlight the timestamp
+        with highlight_container:
+            st.markdown(f"<h4 style='color: red;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
+        time.sleep(1)  # Keep the highlight for a second
 
-    for date_text, status_text in statuses:
-        color = 'green' if status_text == 'Comprar' else 'red'
-        st.markdown(f"""
-            <div style='border: 2px solid {color}; padding: 10px; margin: 5px; border-radius: 5px;'>
-                <span style='color:{color}; font-weight: bold;'>{date_text} - {status_text}</span>
-            </div>
-        """, unsafe_allow_html=True)
+        with highlight_container:
+            st.markdown(f"<h4>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
 
-    # Refresh after the specified interval
-    st.experimental_rerun()
-
-# Display the countdown timer
-if st.session_state.running:
-    for i in range(refresh_rate, 0, -1):
-        st.write(f"Next check in: {i} seconds")
-        time.sleep(1)
-    st.experimental_rerun()
+        with status_container.container():
+            for date_text, status_text in statuses:
+                color = 'green' if status_text == 'Comprar' else 'red'
+                st.markdown(f"""
+                    <div style='border: 2px solid {color}; padding: 10px; margin: 5px; border-radius: 5px;'>
+                        <span style='color:{color}; font-weight: bold;'>{date_text} - {status_text}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+        st.experimental_rerun()
+else:
+    st.write("Click 'Start Checking' to begin.")
