@@ -2,10 +2,10 @@ import streamlit as st
 import os
 
 # Function to install and setup ChromeDriver
-@st.experimental_singleton
+@st.singleton
 def install_chromedriver():
     os.system('sbase install chromedriver')
-    os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/chromedriver /home/appuser/venv/bin/chromedriver')
+    os.system('ln -s /home/appuser/venv/lib/python3.11/site-packages/seleniumbase/drivers/chromedriver /home/appuser/venv/bin/chromedriver')
 
 # Install ChromeDriver
 _ = install_chromedriver()
