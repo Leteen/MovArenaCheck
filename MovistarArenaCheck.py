@@ -10,6 +10,7 @@ URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb2
 
 # Function to check status
 # Function to check status
+# Function to check status
 def check_status(driver):
     # Refresh the webpage
     driver.refresh()
@@ -56,7 +57,12 @@ def start_checking():
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
-    st.session_state.driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_argument("--no-sandbox")  # Bypass OS security model
+    chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
+
+    # Specify the path to ChromeDriver
+    chrome_service = Service(os.path.join(os.getcwd(), 'chromedriver'))
+    st.session_state.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
     st.session_state.driver.get(URL)
     st.session_state.running = True
 
@@ -72,7 +78,6 @@ st.button('Stop Checking', on_click=stop_checking)
 highlight_container = st.empty()
 status_container = st.empty()
 timer_container = st.empty()
-
 
 while st.session_state.running:
     for i in range(refresh_rate, 0, -1):
