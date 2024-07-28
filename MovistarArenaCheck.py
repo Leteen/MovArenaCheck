@@ -6,17 +6,15 @@ from bs4 import BeautifulSoup
 import time
 import smtplib
 from email.mime.text import MIMEText
-import threading
 
-# Dictionary of URLs for different artists
-ARTIST_URLS = {
-    'Tan Bionica': 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26',
-    'Keane': 'https://www.movistararena.com.ar/show/1bdf1f48-eac4-4522-b864-d40225dc1df9'
-}
+# URL of the website to scrape
+URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26'
 
 # Function to check status
-def check_status(driver, url):
-    driver.get(url)
+def check_status(driver):
+    # Refresh the webpage
+    driver.refresh()
+
     # Wait for the page to load completely
     time.sleep(5)
 
@@ -47,7 +45,9 @@ def check_status(driver, url):
         else:
             artist_text = "Unknown Artist"
 
-        results.append((artist_text, date_text, status_text))
+
+
+        results.append((date_text, status_text))
     return results
 
 def send_email(subject, body, to_email):
@@ -68,72 +68,43 @@ def send_email(subject, body, to_email):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-def start_checking(refresh_rate, email_address, artists_selected):
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run in headless mode
-    chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
-    driver = webdriver.Chrome(options=chrome_options)
-
-    # Get initial events
-    previous_status = {}
-    for artist in artists_selected:
-        url = ARTIST_URLS[artist]
-        events = check_status(driver, url)
-        for event in events:
-            artist_text, date_text, status_text = event
-            previous_status[f"{artist_text} {date_text}"] = status_text
-
-    st.session_state.running = True
-
-    while st.session_state.running:
-        statuses = []
-        for artist in artists_selected:
-            url = ARTIST_URLS[artist]
-            statuses.extend(check_status(driver, url))
-        
-        # Check and notify for changes
-        for artist_text, date_text, status_text in statuses:
-            event_key = f"{artist_text} {date_text}"
-            previous_status_text = previous_status.get(event_key, None)
-            if previous_status_text and previous_status_text != status_text:
-                subject = f"{artist_text} {date_text} status changed"
-                body = f"The tickets for {artist_text} on {date_text} have changed from {previous_status_text} to {status_text}!"
-                send_email(subject, body, email_address)
-                previous_status[event_key] = status_text
-        
-        # Update the status container
-        status_container.empty()
-        with status_container.container():
-            for artist_text, date_text, status_text in statuses:
-                color = 'green' if status_text == 'Comprar' else 'red'
-                st.markdown(f"""
-                    <div style='border: 2px solid {color}; padding: 10px; margin: 5px; border-radius: 5px;'>
-                        <span style='color:{color}; font-weight: bold;'>{artist_text} - {date_text} - {status_text}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-        
-        time.sleep(refresh_rate)
-
-    driver.quit()
-
-def stop_checking():
-    st.session_state.running = False
-
 tab1, tab2 = st.tabs(['Movistar Arena', 'All Access'])
 
 with tab1:
     st.title('Checker de tickets de Movistar Arena')
-    artists_selected = st.multiselect('Selecciona los artistas', list(ARTIST_URLS.keys()))
-
     refresh_rate = st.number_input('Checkear cada: (segundos)', min_value=1, value=5)
     email_address = st.text_input('Email address to notify:', '')
 
     if 'running' not in st.session_state:
         st.session_state.running = False
 
+    if 'driver' not in st.session_state:
+        st.session_state.driver = None
+
+    if 'events' not in st.session_state:
+        st.session_state.events = []
+
+    def start_checking():
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Run in headless mode
+        chrome_options.add_argument("--disable-gpu")  # Disable GPU acceleration
+        st.session_state.driver = webdriver.Chrome(options=chrome_options)
+        st.session_state.driver.get(URL)
+        st.session_state.running = True
+
+        # Get initial events
+        st.session_state.events = check_status(st.session_state.driver)
+        st.session_state.previous_status = {event[0]: event[1] for event in st.session_state.events}
+
+    def stop_checking():
+        st.session_state.running = False
+        if st.session_state.driver:
+            st.session_state.driver.quit()
+            st.session_state.driver = None
+
     column1, column2 = st.columns(2)
     with column1:
-        st.button('Start Checking', on_click=lambda: threading.Thread(target=start_checking, args=(refresh_rate, email_address, artists_selected)).start())
+        st.button('Start Checking', on_click=start_checking)
     with column2:
         st.button('Stop Checking', on_click=stop_checking)
 
@@ -149,28 +120,35 @@ with tab1:
     status_container = st.empty()
     timer_container = st.empty()
 
-    if st.session_state.running:
-        selected_artist = st.selectbox('Select Artist to View Events', artists_selected)
-        for artist in artists_selected:
-            url = ARTIST_URLS[artist]
-            statuses = check_status(st.session_state.driver, url)
+    while st.session_state.running:
+        for i in range(refresh_rate, 0, -1):
+            with timer_container:
+                st.write(f"Next check in: {i} seconds")
+            time.sleep(1)
+        
+        statuses = check_status(st.session_state.driver)
+        
+        # Highlight the timestamp
+        with highlight_container:
+            st.markdown(f"<h4 style='color: red;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
+        time.sleep(1)  # Keep the highlight for a second
 
-            with highlight_container:
-                st.markdown(f"<h4 style='color: red;'>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
-            time.sleep(1)  # Keep the highlight for a second
+        with highlight_container:
+            st.markdown(f"<h4>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
 
-            with highlight_container:
-                st.markdown(f"<h4>Checked at: {time.ctime()}</h4>", unsafe_allow_html=True)
-
-            if artist == selected_artist:
-                with status_container.container():
-                    for artist_text, date_text, status_text in statuses:
-                        color = 'green' if status_text == 'Comprar' else 'red'
-                        st.markdown(f"""
-                            <div style='border: 2px solid {color}; padding: 10px; margin: 5px; border-radius: 5px;'>
-                                <span style='color:{color}; font-weight: bold;'>{artist_text} - {date_text} - {status_text}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-        # Ensure the user stops checking when they leave the app
-        st.on_session_end(stop_checking)
+        with status_container.container():
+            for date_text, status_text in statuses:
+                color = 'green' if status_text == 'Comprar' else 'red'
+                st.markdown(f"""
+                    <div style='border: 2px solid {color}; padding: 10px; margin: 5px; border-radius: 5px;'>
+                        <span style='color:{color}; font-weight: bold;'>{date_text} - {status_text}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Check if the event status changed
+                previous_status = st.session_state.previous_status.get(date_text, None)
+                if previous_status and previous_status != status_text:
+                    subject = f"Tan Bionica {date_text} disponible para comprar YA"
+                    body = f"Tickets para Tan Bionica {date_text} cambio de {previous_status} a {status_text}!"
+                    send_email(subject, body, email_address)
+                    st.session_state.previous_status[date_text] = status_text
