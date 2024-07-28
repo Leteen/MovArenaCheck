@@ -8,7 +8,7 @@ import time
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Function to setup ChromeDriver using webdriver-manager
-@st.experimental_singleton
+@st.cache_resource
 def install_chromedriver():
     driver_path = ChromeDriverManager().install()
     return driver_path
