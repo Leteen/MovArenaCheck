@@ -1,6 +1,17 @@
 import streamlit as st
+import os
+
+# Function to install and setup ChromeDriver
+@st.experimental_singleton
+def install_chromedriver():
+    os.system('sbase install chromedriver')
+    os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/chromedriver /home/appuser/venv/bin/chromedriver')
+
+# Install ChromeDriver
+_ = install_chromedriver()
+
 from selenium import webdriver
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import time
@@ -8,6 +19,7 @@ import time
 # URL of the website to scrape
 URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26'
 
+# Function to check status
 # Function to check status
 # Function to check status
 # Function to check status
@@ -61,7 +73,7 @@ def start_checking():
     chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 
     # Specify the path to ChromeDriver
-    chrome_service = Service(os.path.join(os.getcwd(), 'chromedriver'))
+    chrome_service = Service('/home/appuser/venv/bin/chromedriver')
     st.session_state.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
     st.session_state.driver.get(URL)
     st.session_state.running = True
