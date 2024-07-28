@@ -7,15 +7,6 @@ from bs4 import BeautifulSoup
 import time
 from webdriver_manager.chrome import ChromeDriverManager
 
-# Function to setup ChromeDriver using webdriver-manager
-@st.cache_resource
-def install_chromedriver():
-    driver_path = ChromeDriverManager().install()
-    return driver_path
-
-# Get the path to the installed ChromeDriver
-driver_path = install_chromedriver()
-
 # URL of the website to scrape
 URL = 'https://www.movistararena.com.ar/show/148a7bae-bb0a-4efa-b4f8-aca6f46beb26'
 
@@ -70,7 +61,7 @@ def start_checking():
     chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 
     # Use the path to ChromeDriver installed by webdriver-manager
-    chrome_service = Service(driver_path)
+    chrome_service = Service(ChromeDriverManager().install())
     st.session_state.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
     st.session_state.driver.get(URL)
     st.session_state.running = True
